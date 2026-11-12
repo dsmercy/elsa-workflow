@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- All Elsa packages pinned to 3.9.0. Only this project references Elsa server packages. -->
+    <PackageReference Include="Elsa" Version="3.9.0" />
+    <PackageReference Include="Elsa.Persistence.EFCore" Version="3.9.0" />
+    <PackageReference Include="Elsa.Persistence.EFCore.Sqlite" Version="3.9.0" />
+    <PackageReference Include="Elsa.Http" Version="3.9.0" />
+    <PackageReference Include="Elsa.Identity" Version="3.9.0" />
+    <PackageReference Include="Elsa.Scheduling" Version="3.9.0" />
+    <PackageReference Include="Elsa.Workflows.Api" Version="3.9.0" />
+    <PackageReference Include="Elsa.Dashboard.Api" Version="3.9.0" />
+    <PackageReference Include="Elsa.Workflows.Runtime.Dashboard" Version="3.9.0" />
+    <PackageReference Include="Elsa.Expressions.JavaScript" Version="3.9.0" />
+    <PackageReference Include="Elsa.Expressions.Liquid" Version="3.9.0" />
+    <!-- Send Email activity (approval notifications). -->
+    <PackageReference Include="Elsa.Email" Version="3.9.0" />
+    <!-- Deliberately NOT referenced: Elsa.Expressions.CSharp / Elsa.Expressions.Python (they execute host code). -->
+  </ItemGroup>
+
+</Project>

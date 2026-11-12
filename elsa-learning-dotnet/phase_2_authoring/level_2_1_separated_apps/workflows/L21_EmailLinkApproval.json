@@ -1,0 +1,168 @@
+{
+  "id": "l21emaillink0001",
+  "definitionId": "L21_EmailLinkApproval",
+  "name": "L21_EmailLinkApproval",
+  "description": "Approve by email link: Correlate → email with Approve/Reject links (Execute Workflow) → HTTP Endpoint on the Elsa Server waits for the click → respond to the browser → PUT status to CustomApi.",
+  "version": 1,
+  "toolVersion": "3.9.0.0",
+  "variables": [
+    { "id": "l21elVarOrderId", "name": "OrderId", "typeName": "String", "isArray": false, "value": "", "storageDriverTypeName": "Elsa.Workflows.WorkflowInstanceStorageDriver, Elsa.Workflows.Core" },
+    { "id": "l21elVarProduct", "name": "Product", "typeName": "String", "isArray": false, "value": "", "storageDriverTypeName": "Elsa.Workflows.WorkflowInstanceStorageDriver, Elsa.Workflows.Core" },
+    { "id": "l21elVarAmount", "name": "Amount", "typeName": "Double", "isArray": false, "value": "0", "storageDriverTypeName": "Elsa.Workflows.WorkflowInstanceStorageDriver, Elsa.Workflows.Core" },
+    { "id": "l21elVarQuery", "name": "Query", "typeName": "ObjectDictionary", "isArray": false, "storageDriverTypeName": "Elsa.Workflows.WorkflowInstanceStorageDriver, Elsa.Workflows.Core" },
+    { "id": "l21elVarStatus", "name": "Status", "typeName": "String", "isArray": false, "value": "", "storageDriverTypeName": "Elsa.Workflows.WorkflowInstanceStorageDriver, Elsa.Workflows.Core" }
+  ],
+  "inputs": [
+    { "type": "Object", "name": "Order", "displayName": "Order", "description": "The order submitted through CustomApi (POST /api/orders).", "category": "", "uiHint": "singleline", "isArray": false }
+  ],
+  "outputs": [
+    { "type": "String", "name": "Status", "displayName": "Status", "description": "approved or rejected", "category": "", "isArray": false }
+  ],
+  "outcomes": [],
+  "customProperties": {},
+  "isReadonly": false,
+  "isLatest": true,
+  "isPublished": false,
+  "options": { "autoUpdateConsumingWorkflows": false },
+  "root": {
+    "type": "Elsa.Flowchart",
+    "version": 1,
+    "id": "l21elFlow",
+    "metadata": {},
+    "customProperties": {},
+    "activities": [
+      {
+        "script": { "typeName": "String", "expression": { "type": "Literal", "value": "const o = getInput(\"Order\");\nvariables.OrderId = o.OrderId;\nvariables.Product = o.Product;\nvariables.Amount = o.Amount;" } },
+        "id": "l21elCapture",
+        "name": "CaptureOrder",
+        "type": "Elsa.RunJavaScript",
+        "version": 1,
+        "customProperties": { "canStartWorkflow": false, "runAsynchronously": false },
+        "metadata": { "displayText": "Copy order into variables", "designer": { "position": { "x": -900, "y": 200 } } }
+      },
+      {
+        "correlationId": { "typeName": "String", "expression": { "type": "JavaScript", "value": "variables.OrderId" } },
+        "id": "l21elCorrelate",
+        "name": "CorrelateByOrderId",
+        "type": "Elsa.Correlate",
+        "version": 1,
+        "customProperties": { "canStartWorkflow": false, "runAsynchronously": false },
+        "metadata": { "displayText": "Correlation ID = OrderId", "designer": { "position": { "x": -680, "y": 200 } } }
+      },
+      {
+        "value": { "typeName": "String", "expression": { "type": "Liquid", "value": "Order {{ Variables.Product }} ({{ Variables.Amount }}) · Email-link approval" } },
+        "id": "l21elSetName",
+        "name": "NameInstance",
+        "type": "Elsa.SetName",
+        "version": 1,
+        "customProperties": { "canStartWorkflow": false, "runAsynchronously": false },
+        "metadata": { "displayText": "Name the instance", "designer": { "position": { "x": -460, "y": 200 } } }
+      },
+      {
+        "condition": { "typeName": "Boolean", "expression": { "type": "JavaScript", "value": "variables.Amount > 1000" } },
+        "id": "l21elDecision",
+        "name": "NeedsApproval",
+        "type": "Elsa.FlowDecision",
+        "version": 1,
+        "customProperties": { "canStartWorkflow": false, "runAsynchronously": false },
+        "metadata": { "displayText": "Amount > 1000?", "designer": { "position": { "x": -240, "y": 200 } } }
+      },
+      {
+        "variable": { "id": "l21elVarStatus", "name": "Status", "typeName": "String", "value": "" },
+        "value": { "typeName": "Object", "expression": { "type": "Literal", "value": "approved" } },
+        "id": "l21elAutoApprove",
+        "name": "AutoApprove",
+        "type": "Elsa.SetVariable",
+        "version": 1,
+        "customProperties": { "canStartWorkflow": false, "runAsynchronously": false },
+        "metadata": { "displayText": "Status = approved (auto)", "designer": { "position": { "x": 560, "y": 360 } } }
+      },
+      {
+        "workflowDefinitionId": { "typeName": "String", "expression": { "type": "Literal", "value": "L21_SendNotification" } },
+        "waitForCompletion": { "typeName": "Boolean", "expression": { "type": "Literal", "value": "true" } },
+        "input": {
+          "typeName": "ObjectDictionary",
+          "expression": {
+            "type": "JavaScript",
+            "value": "const link = \"https://localhost:5001/workflows/l21/approvals/decision?correlationId=\" + variables.OrderId + \"&decision=\";\n({ Title: \"Approve by link: \" + variables.Product, Message: \"Order \" + variables.OrderId + \" for \" + variables.Amount + \" needs approval. Click a link below.\", OrderId: variables.OrderId, ApproveLink: link + \"approve\", RejectLink: link + \"reject\", Pattern: \"EmailLink\", Stage: \"\" })"
+          }
+        },
+        "id": "l21elNotify",
+        "name": "EmailLinks",
+        "type": "Elsa.ExecuteWorkflow",
+        "version": 1,
+        "customProperties": { "canStartWorkflow": false, "runAsynchronously": false },
+        "metadata": { "displayText": "Email Approve/Reject links (child workflow)", "designer": { "position": { "x": 0, "y": 60 } } }
+      },
+      {
+        "path": { "typeName": "String", "expression": { "type": "Literal", "value": "l21/approvals/decision" } },
+        "supportedMethods": { "typeName": "String[]", "expression": { "type": "Object", "value": "[\"GET\"]" } },
+        "authorize": { "typeName": "Boolean", "expression": { "type": "Literal", "value": false } },
+        "queryStringData": { "typeName": "ObjectDictionary", "memoryReference": { "id": "l21elVarQuery" } },
+        "id": "l21elWaitClick",
+        "name": "WaitForClick",
+        "type": "Elsa.HttpEndpoint",
+        "version": 1,
+        "customProperties": { "canStartWorkflow": false, "runAsynchronously": false },
+        "metadata": { "displayText": "Wait for GET /l21/approvals/decision", "designer": { "position": { "x": 260, "y": 60 } } }
+      },
+      {
+        "variable": { "id": "l21elVarStatus", "name": "Status", "typeName": "String", "value": "" },
+        "value": { "typeName": "Object", "expression": { "type": "JavaScript", "value": "String(variables.Query.decision) === \"approve\" ? \"approved\" : \"rejected\"" } },
+        "id": "l21elApplyClick",
+        "name": "ApplyClick",
+        "type": "Elsa.SetVariable",
+        "version": 1,
+        "customProperties": { "canStartWorkflow": false, "runAsynchronously": false },
+        "metadata": { "displayText": "Status from ?decision=", "designer": { "position": { "x": 520, "y": 60 } } }
+      },
+      {
+        "statusCode": { "typeName": "System.Net.HttpStatusCode, System.Net.Primitives", "expression": { "type": "Literal", "value": "OK" } },
+        "content": { "typeName": "Object", "expression": { "type": "Liquid", "value": "<!DOCTYPE html><html><body style=\"font-family:system-ui;margin:2rem\"><h1>Thank you</h1><p>Order {{ Variables.OrderId }} ({{ Variables.Product }}) is now <strong>{{ Variables.Status }}</strong>.</p><p><a href=\"https://localhost:5201/Orders\">See all orders</a></p></body></html>" } },
+        "contentType": { "typeName": "String", "expression": { "type": "Literal", "value": "text/html" } },
+        "id": "l21elRespond",
+        "name": "ThankYouPage",
+        "type": "Elsa.WriteHttpResponse",
+        "version": 1,
+        "customProperties": { "canStartWorkflow": false, "runAsynchronously": false },
+        "metadata": { "displayText": "Show a thank-you page", "designer": { "position": { "x": 780, "y": 60 } } }
+      },
+      {
+        "outputName": { "typeName": "String", "expression": { "type": "Literal", "value": "Status" } },
+        "outputValue": { "typeName": "Object", "expression": { "type": "JavaScript", "value": "variables.Status" } },
+        "id": "l21elOutput",
+        "name": "OutputStatus",
+        "type": "Elsa.SetOutput",
+        "version": 1,
+        "customProperties": { "canStartWorkflow": false, "runAsynchronously": false },
+        "metadata": { "displayText": "Output Status", "designer": { "position": { "x": 1040, "y": 200 } } }
+      },
+      {
+        "expectedStatusCodes": { "typeName": "Int32[]", "expression": { "type": "Object", "value": "[200]" } },
+        "url": { "typeName": "System.Uri, System.Private.Uri", "expression": { "type": "JavaScript", "value": "\"https://localhost:5101/api/orders/\" + variables.OrderId + \"/status\"" } },
+        "method": { "typeName": "String", "expression": { "type": "Literal", "value": "PUT" } },
+        "contentType": { "typeName": "String", "expression": { "type": "Literal", "value": "application/json" } },
+        "content": { "typeName": "Object", "expression": { "type": "JavaScript", "value": "JSON.stringify({ status: variables.Status })" } },
+        "id": "l21elReport",
+        "name": "ReportStatus",
+        "type": "Elsa.FlowSendHttpRequest",
+        "version": 1,
+        "customProperties": { "canStartWorkflow": false, "runAsynchronously": false },
+        "metadata": { "displayText": "PUT status to CustomApi", "designer": { "position": { "x": 1300, "y": 200 } } }
+      }
+    ],
+    "connections": [
+      { "source": { "activity": "l21elCapture", "port": "Done" }, "target": { "activity": "l21elCorrelate", "port": "In" } },
+      { "source": { "activity": "l21elCorrelate", "port": "Done" }, "target": { "activity": "l21elSetName", "port": "In" } },
+      { "source": { "activity": "l21elSetName", "port": "Done" }, "target": { "activity": "l21elDecision", "port": "In" } },
+      { "source": { "activity": "l21elDecision", "port": "False" }, "target": { "activity": "l21elAutoApprove", "port": "In" } },
+      { "source": { "activity": "l21elDecision", "port": "True" }, "target": { "activity": "l21elNotify", "port": "In" } },
+      { "source": { "activity": "l21elNotify", "port": "Done" }, "target": { "activity": "l21elWaitClick", "port": "In" } },
+      { "source": { "activity": "l21elWaitClick", "port": "Done" }, "target": { "activity": "l21elApplyClick", "port": "In" } },
+      { "source": { "activity": "l21elApplyClick", "port": "Done" }, "target": { "activity": "l21elRespond", "port": "In" } },
+      { "source": { "activity": "l21elRespond", "port": "Done" }, "target": { "activity": "l21elOutput", "port": "In" } },
+      { "source": { "activity": "l21elAutoApprove", "port": "Done" }, "target": { "activity": "l21elOutput", "port": "In" } },
+      { "source": { "activity": "l21elOutput", "port": "Done" }, "target": { "activity": "l21elReport", "port": "In" } }
+    ]
+  }
+}

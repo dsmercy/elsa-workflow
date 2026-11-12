@@ -1,0 +1,81 @@
+@model ApprovalsViewModel
+@{
+    ViewData["Title"] = "Approvals";
+    // Same order as the order form; only patterns with something pending are shown.
+    var groups = new (ApprovalPattern Pattern, string Title, string How)[]
+    {
+        (ApprovalPattern.Event, "Single approver — Event OrderReviewed",
+            "CustomApi calls POST /elsa/api/events/OrderReviewed/trigger with the order ID as correlation ID."),
+        (ApprovalPattern.EmailLink, "Approve by email link — HTTP Endpoint",
+            "CustomApi follows the same link the email contains (GET on the Elsa Server's /workflows endpoint). You can also click the link yourself."),
+        (ApprovalPattern.RunTask, "Run Task ReviewOrder",
+            "CustomApi calls POST /elsa/api/tasks/{taskId}/complete with the decision as the task result."),
+        (ApprovalPattern.MultiStage, "Multi-stage — State Machine (manager → finance)",
+            "CustomApi publishes the current stage's event, L21.ManagerReviewed or L21.FinanceReviewed. Company-employee orders skip the manager stage.")
+    };
+}
+
+<h2>Approvals</h2>
+
+@if (Model.Message is not null) { <div class="box ok" role="status">@Model.Message</div> }
+@if (Model.Error is not null) { <div class="box error" role="alert">@Model.Error</div> }
+
+@if (Model.Pending.Count == 0)
+{
+    @if (Model.Error is null)
+    {
+        <div class="box">
+            <p><strong>No pending approvals.</strong></p>
+            <p class="muted">Orders that need a person's decision show up here while their workflow is suspended.
+                <a asp-controller="Orders" asp-action="Create">Submit a new order</a> over 1000 to create one.</p>
+        </div>
+    }
+}
+else
+{
+    <p class="muted">
+        Pending approvals from CustomApi (<code>GET /api/approvals</code>). Every button calls
+        <code>POST /api/approvals/{id}/decision</code>; CustomApi then resumes the workflow on the Elsa Server.
+    </p>
+
+    <label for="reviewer">Reviewer name (optional, sent with the decision)</label>
+    @* One reviewer field, copied into every form below by its name="reviewer" hidden input. *@
+    <input id="reviewer" placeholder="manager" oninput="document.querySelectorAll('input[name=reviewer]').forEach(i => i.value = this.value)" />
+
+    @foreach (var g in groups)
+    {
+        var rows = Model.Pending.Where(a => a.Pattern == g.Pattern.ToString()).ToList();
+        if (rows.Count == 0) { continue; }
+
+        <section class="box">
+            <h3>@g.Title</h3>
+            <p class="muted">@g.How</p>
+            <div class="tablewrap"><table>
+                <thead><tr><th>Order</th><th>Placed by</th>@if (g.Pattern == ApprovalPattern.MultiStage) { <th>Stage</th> }<th>Order ID</th><th>Requested (UTC)</th><th></th></tr></thead>
+                <tbody>
+                @foreach (var a in rows)
+                {
+                    <tr data-action-row>
+                        <td>@a.Product, @a.Amount?.ToString("0.00")</td>
+                        <td>@(a.OrderCreatedBy ?? "—")</td>
+                        @if (g.Pattern == ApprovalPattern.MultiStage) { <td>@a.Stage</td> }
+                        <td class="mono">@a.OrderId</td>
+                        <td>@a.RequestedAt.ToString("HH:mm:ss")</td>
+                        <td>
+                            @foreach (var approved in new[] { true, false })
+                            {
+                                <form class="inline" asp-action="Decide" method="post">
+                                    <input type="hidden" name="id" value="@a.Id" />
+                                    <input type="hidden" name="approved" value="@approved.ToString().ToLowerInvariant()" />
+                                    <input type="hidden" name="reviewer" />
+                                    <button type="submit">@(a.Stage is null ? "" : a.Stage + ": ")@(approved ? "Approve" : "Reject")</button>
+                                </form>
+                            }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table></div>
+        </section>
+    }
+}

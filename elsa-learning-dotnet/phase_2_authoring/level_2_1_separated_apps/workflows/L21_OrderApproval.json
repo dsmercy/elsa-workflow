@@ -1,0 +1,83 @@
+{
+  "id": "l21orderapproval1",
+  "definitionId": "L21_OrderApproval",
+  "name": "L21_OrderApproval",
+  "description": "Phase 2 / Level 2: Amount <= 1000 → approved, otherwise needs_review.",
+  "version": 1,
+  "toolVersion": "3.9.0.0",
+  "variables": [],
+  "inputs": [
+    {
+      "type": "Object",
+      "name": "Order",
+      "displayName": "Order",
+      "description": "The order submitted through CustomApi (POST /api/orders).",
+      "category": "",
+      "uiHint": "singleline",
+      "isArray": false
+    }
+  ],
+  "outputs": [
+    {
+      "type": "String",
+      "name": "Status",
+      "displayName": "Status",
+      "description": "approved or needs_review",
+      "category": "",
+      "isArray": false
+    }
+  ],
+  "outcomes": [],
+  "customProperties": {},
+  "isReadonly": false,
+  "isLatest": true,
+  "isPublished": false,
+  "options": {
+    "autoUpdateConsumingWorkflows": false
+  },
+  "root": {
+    "type": "Elsa.Flowchart",
+    "version": 1,
+    "id": "l21flowchart0001",
+    "metadata": {},
+    "customProperties": {},
+    "activities": [
+      {
+        "condition": {
+          "typeName": "Boolean",
+          "expression": { "type": "JavaScript", "value": "getInput(\"Order\").Amount > 1000" }
+        },
+        "id": "l21decision00001",
+        "name": "AmountAbove1000",
+        "type": "Elsa.FlowDecision",
+        "version": 1,
+        "customProperties": { "canStartWorkflow": false, "runAsynchronously": false },
+        "metadata": { "displayText": "Amount > 1000?", "designer": { "position": { "x": 0, "y": 150 } } }
+      },
+      {
+        "outputName": { "typeName": "String", "expression": { "type": "Literal", "value": "Status" } },
+        "outputValue": { "typeName": "Object", "expression": { "type": "Literal", "value": "needs_review" } },
+        "id": "l21setneedsrev01",
+        "name": "SetNeedsReview",
+        "type": "Elsa.SetOutput",
+        "version": 1,
+        "customProperties": { "canStartWorkflow": false, "runAsynchronously": false },
+        "metadata": { "displayText": "Status = needs_review", "designer": { "position": { "x": 350, "y": 50 } } }
+      },
+      {
+        "outputName": { "typeName": "String", "expression": { "type": "Literal", "value": "Status" } },
+        "outputValue": { "typeName": "Object", "expression": { "type": "Literal", "value": "approved" } },
+        "id": "l21setapproved01",
+        "name": "SetApproved",
+        "type": "Elsa.SetOutput",
+        "version": 1,
+        "customProperties": { "canStartWorkflow": false, "runAsynchronously": false },
+        "metadata": { "displayText": "Status = approved", "designer": { "position": { "x": 350, "y": 250 } } }
+      }
+    ],
+    "connections": [
+      { "source": { "activity": "l21decision00001", "port": "True" }, "target": { "activity": "l21setneedsrev01", "port": "In" } },
+      { "source": { "activity": "l21decision00001", "port": "False" }, "target": { "activity": "l21setapproved01", "port": "In" } }
+    ]
+  }
+}

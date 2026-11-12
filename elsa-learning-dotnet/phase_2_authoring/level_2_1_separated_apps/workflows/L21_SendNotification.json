@@ -1,0 +1,74 @@
+{
+  "id": "l21sendnotify001",
+  "definitionId": "L21_SendNotification",
+  "name": "L21_SendNotification",
+  "description": "Child workflow: sends one notification by email (Send Email) and to CustomApi (HTTP Request POST /api/notifications). When Pattern is set, CustomApi also records a pending approval. Called by the approval workflows with Execute Workflow.",
+  "version": 1,
+  "toolVersion": "3.9.0.0",
+  "variables": [],
+  "inputs": [
+    { "type": "String", "name": "Title", "displayName": "Title", "description": "Subject / headline", "category": "", "uiHint": "singleline", "isArray": false },
+    { "type": "String", "name": "Message", "displayName": "Message", "description": "Body text", "category": "", "uiHint": "singleline", "isArray": false },
+    { "type": "String", "name": "OrderId", "displayName": "Order ID", "description": "", "category": "", "uiHint": "singleline", "isArray": false },
+    { "type": "String", "name": "ApproveLink", "displayName": "Approve link", "description": "Optional link (approval page or approve URL)", "category": "", "uiHint": "singleline", "isArray": false },
+    { "type": "String", "name": "RejectLink", "displayName": "Reject link", "description": "Optional reject URL (email-link pattern)", "category": "", "uiHint": "singleline", "isArray": false },
+    { "type": "String", "name": "Pattern", "displayName": "Approval pattern", "description": "Event, EmailLink or MultiStage — when set, CustomApi records a pending approval", "category": "", "uiHint": "singleline", "isArray": false },
+    { "type": "String", "name": "Stage", "displayName": "Stage", "description": "Manager or Finance (multi-stage only)", "category": "", "uiHint": "singleline", "isArray": false }
+  ],
+  "outputs": [],
+  "outcomes": [],
+  "customProperties": {},
+  "isReadonly": false,
+  "isLatest": true,
+  "isPublished": false,
+  "options": { "autoUpdateConsumingWorkflows": false },
+  "root": {
+    "type": "Elsa.Flowchart",
+    "version": 1,
+    "id": "l21notifyFlow",
+    "metadata": {},
+    "customProperties": {},
+    "activities": [
+      {
+        "from": { "typeName": "String", "expression": { "type": "Literal", "value": "orders@l21.local" } },
+        "to": { "typeName": "String[]", "expression": { "type": "Object", "value": "[\"manager@l21.local\"]" } },
+        "subject": { "typeName": "String", "expression": { "type": "JavaScript", "value": "getInput(\"Title\")" } },
+        "body": {
+          "typeName": "String",
+          "expression": {
+            "type": "Liquid",
+            "value": "<p>{{ Input.Message }}</p>{% if Input.RejectLink != empty %}<p><a href=\"{{ Input.ApproveLink }}\">Approve</a> | <a href=\"{{ Input.RejectLink }}\">Reject</a></p>{% elsif Input.ApproveLink != empty %}<p><a href=\"{{ Input.ApproveLink }}\">Open the approvals page</a></p>{% endif %}<p>Order: {{ Input.OrderId }}</p>"
+          }
+        },
+        "id": "l21notifyEmail",
+        "name": "SendEmail",
+        "type": "Elsa.SendEmail",
+        "version": 1,
+        "customProperties": { "canStartWorkflow": false, "runAsynchronously": false },
+        "metadata": { "displayText": "Email the approver", "designer": { "position": { "x": 0, "y": 100 } } }
+      },
+      {
+        "expectedStatusCodes": { "typeName": "Int32[]", "expression": { "type": "Object", "value": "[200]" } },
+        "url": { "typeName": "System.Uri, System.Private.Uri", "expression": { "type": "Literal", "value": "https://localhost:5101/api/notifications" } },
+        "method": { "typeName": "String", "expression": { "type": "Literal", "value": "POST" } },
+        "contentType": { "typeName": "String", "expression": { "type": "Literal", "value": "application/json" } },
+        "content": {
+          "typeName": "Object",
+          "expression": {
+            "type": "JavaScript",
+            "value": "JSON.stringify({ title: getInput(\"Title\"), message: getInput(\"Message\"), orderId: getInput(\"OrderId\"), link: getInput(\"ApproveLink\"), rejectLink: getInput(\"RejectLink\"), pattern: getInput(\"Pattern\"), stage: getInput(\"Stage\") })"
+          }
+        },
+        "id": "l21notifyWebhook",
+        "name": "PostWebhook",
+        "type": "Elsa.FlowSendHttpRequest",
+        "version": 1,
+        "customProperties": { "canStartWorkflow": false, "runAsynchronously": false },
+        "metadata": { "displayText": "POST to CustomApi /api/notifications", "designer": { "position": { "x": 300, "y": 100 } } }
+      }
+    ],
+    "connections": [
+      { "source": { "activity": "l21notifyEmail", "port": "Done" }, "target": { "activity": "l21notifyWebhook", "port": "In" } }
+    ]
+  }
+}

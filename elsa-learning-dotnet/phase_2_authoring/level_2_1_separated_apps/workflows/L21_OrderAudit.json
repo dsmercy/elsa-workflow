@@ -1,0 +1,50 @@
+{
+  "id": "l21orderaudit001",
+  "definitionId": "L21_OrderAudit",
+  "name": "L21_OrderAudit",
+  "description": "Child workflow started with Dispatch Workflow (queued, runs in the background). Records the final decision as a notification.",
+  "version": 1,
+  "toolVersion": "3.9.0.0",
+  "variables": [],
+  "inputs": [
+    { "type": "String", "name": "OrderId", "displayName": "Order ID", "description": "", "category": "", "uiHint": "singleline", "isArray": false },
+    { "type": "String", "name": "Status", "displayName": "Status", "description": "approved or rejected", "category": "", "uiHint": "singleline", "isArray": false },
+    { "type": "String", "name": "Pattern", "displayName": "Pattern", "description": "Which approval workflow dispatched this", "category": "", "uiHint": "singleline", "isArray": false }
+  ],
+  "outputs": [],
+  "outcomes": [],
+  "customProperties": {},
+  "isReadonly": false,
+  "isLatest": true,
+  "isPublished": false,
+  "options": { "autoUpdateConsumingWorkflows": false },
+  "root": {
+    "type": "Elsa.Flowchart",
+    "version": 1,
+    "id": "l21auditFlow",
+    "metadata": {},
+    "customProperties": {},
+    "activities": [
+      {
+        "expectedStatusCodes": { "typeName": "Int32[]", "expression": { "type": "Object", "value": "[200]" } },
+        "url": { "typeName": "System.Uri, System.Private.Uri", "expression": { "type": "Literal", "value": "https://localhost:5101/api/notifications" } },
+        "method": { "typeName": "String", "expression": { "type": "Literal", "value": "POST" } },
+        "contentType": { "typeName": "String", "expression": { "type": "Literal", "value": "application/json" } },
+        "content": {
+          "typeName": "Object",
+          "expression": {
+            "type": "JavaScript",
+            "value": "JSON.stringify({ title: \"Audit (dispatched child workflow)\", message: \"Order \" + getInput(\"OrderId\") + \" was \" + getInput(\"Status\") + \" via the \" + getInput(\"Pattern\") + \" pattern.\", orderId: getInput(\"OrderId\") })"
+          }
+        },
+        "id": "l21auditWebhook",
+        "name": "RecordAudit",
+        "type": "Elsa.FlowSendHttpRequest",
+        "version": 1,
+        "customProperties": { "canStartWorkflow": false, "runAsynchronously": false },
+        "metadata": { "displayText": "Record audit entry", "designer": { "position": { "x": 0, "y": 100 } } }
+      }
+    ],
+    "connections": []
+  }
+}

@@ -1,0 +1,137 @@
+{
+  "id": "l21runtaskappr01",
+  "definitionId": "L21_RunTaskApproval",
+  "name": "L21_RunTaskApproval",
+  "description": "Run Task: Correlate → Run Task \"ReviewOrder\" (ElsaServer forwards it to CustomApi POST /api/tasks) → workflow waits until CustomApi calls POST /elsa/api/tasks/{taskId}/complete → Decision → PUT status to CustomApi.",
+  "version": 1,
+  "toolVersion": "3.9.0.0",
+  "variables": [
+    { "id": "l21rtVarOrderId", "name": "OrderId", "typeName": "String", "isArray": false, "value": "", "storageDriverTypeName": "Elsa.Workflows.WorkflowInstanceStorageDriver, Elsa.Workflows.Core" },
+    { "id": "l21rtVarProduct", "name": "Product", "typeName": "String", "isArray": false, "value": "", "storageDriverTypeName": "Elsa.Workflows.WorkflowInstanceStorageDriver, Elsa.Workflows.Core" },
+    { "id": "l21rtVarAmount", "name": "Amount", "typeName": "Double", "isArray": false, "value": "0", "storageDriverTypeName": "Elsa.Workflows.WorkflowInstanceStorageDriver, Elsa.Workflows.Core" },
+    { "id": "l21rtVarReview", "name": "Review", "typeName": "Object", "isArray": false, "storageDriverTypeName": "Elsa.Workflows.WorkflowInstanceStorageDriver, Elsa.Workflows.Core" },
+    { "id": "l21rtVarStatus", "name": "Status", "typeName": "String", "isArray": false, "value": "", "storageDriverTypeName": "Elsa.Workflows.WorkflowInstanceStorageDriver, Elsa.Workflows.Core" }
+  ],
+  "inputs": [
+    { "type": "Object", "name": "Order", "displayName": "Order", "description": "The order submitted through CustomApi (POST /api/orders).", "category": "", "uiHint": "singleline", "isArray": false }
+  ],
+  "outputs": [
+    { "type": "String", "name": "Status", "displayName": "Status", "description": "approved or rejected", "category": "", "isArray": false }
+  ],
+  "outcomes": [],
+  "customProperties": {},
+  "isReadonly": false,
+  "isLatest": true,
+  "isPublished": false,
+  "options": { "autoUpdateConsumingWorkflows": false },
+  "root": {
+    "type": "Elsa.Flowchart",
+    "version": 1,
+    "id": "l21rtFlow",
+    "metadata": {},
+    "customProperties": {},
+    "activities": [
+      {
+        "script": { "typeName": "String", "expression": { "type": "Literal", "value": "const o = getInput(\"Order\");\nvariables.OrderId = o.OrderId;\nvariables.Product = o.Product;\nvariables.Amount = o.Amount;" } },
+        "id": "l21rtCapture",
+        "name": "CaptureOrder",
+        "type": "Elsa.RunJavaScript",
+        "version": 1,
+        "customProperties": { "canStartWorkflow": false, "runAsynchronously": false },
+        "metadata": { "displayText": "Copy order into variables", "designer": { "position": { "x": -900, "y": 200 } } }
+      },
+      {
+        "correlationId": { "typeName": "String", "expression": { "type": "JavaScript", "value": "variables.OrderId" } },
+        "id": "l21rtCorrelate",
+        "name": "CorrelateByOrderId",
+        "type": "Elsa.Correlate",
+        "version": 1,
+        "customProperties": { "canStartWorkflow": false, "runAsynchronously": false },
+        "metadata": { "displayText": "Correlation ID = OrderId", "designer": { "position": { "x": -680, "y": 200 } } }
+      },
+      {
+        "value": { "typeName": "String", "expression": { "type": "Liquid", "value": "Order {{ Variables.Product }} ({{ Variables.Amount }}) · Run Task approval" } },
+        "id": "l21rtSetName",
+        "name": "NameInstance",
+        "type": "Elsa.SetName",
+        "version": 1,
+        "customProperties": { "canStartWorkflow": false, "runAsynchronously": false },
+        "metadata": { "displayText": "Name the instance", "designer": { "position": { "x": -460, "y": 200 } } }
+      },
+      {
+        "condition": { "typeName": "Boolean", "expression": { "type": "JavaScript", "value": "variables.Amount > 1000" } },
+        "id": "l21rtDecision",
+        "name": "NeedsApproval",
+        "type": "Elsa.FlowDecision",
+        "version": 1,
+        "customProperties": { "canStartWorkflow": false, "runAsynchronously": false },
+        "metadata": { "displayText": "Amount > 1000?", "designer": { "position": { "x": -240, "y": 200 } } }
+      },
+      {
+        "variable": { "id": "l21rtVarStatus", "name": "Status", "typeName": "String", "value": "" },
+        "value": { "typeName": "Object", "expression": { "type": "Literal", "value": "approved" } },
+        "id": "l21rtAutoApprove",
+        "name": "AutoApprove",
+        "type": "Elsa.SetVariable",
+        "version": 1,
+        "customProperties": { "canStartWorkflow": false, "runAsynchronously": false },
+        "metadata": { "displayText": "Status = approved (auto)", "designer": { "position": { "x": 300, "y": 360 } } }
+      },
+      {
+        "taskName": { "typeName": "String", "expression": { "type": "Literal", "value": "ReviewOrder" } },
+        "payload": { "typeName": "ObjectDictionary", "expression": { "type": "JavaScript", "value": "({ OrderId: variables.OrderId, Product: variables.Product, Amount: variables.Amount })" } },
+        "result": { "typeName": "Object", "memoryReference": { "id": "l21rtVarReview" } },
+        "id": "l21rtTask",
+        "name": "ReviewOrderTask",
+        "type": "Elsa.RunTask",
+        "version": 1,
+        "customProperties": { "canStartWorkflow": false, "runAsynchronously": false },
+        "metadata": { "displayText": "Run Task \"ReviewOrder\" (waits)", "designer": { "position": { "x": 0, "y": 60 } } }
+      },
+      {
+        "variable": { "id": "l21rtVarStatus", "name": "Status", "typeName": "String", "value": "" },
+        "value": { "typeName": "Object", "expression": { "type": "JavaScript", "value": "variables.Review.Approved ? \"approved\" : \"rejected\"" } },
+        "id": "l21rtApply",
+        "name": "ApplyTaskResult",
+        "type": "Elsa.SetVariable",
+        "version": 1,
+        "customProperties": { "canStartWorkflow": false, "runAsynchronously": false },
+        "metadata": { "displayText": "Status from the task result", "designer": { "position": { "x": 260, "y": 60 } } }
+      },
+      {
+        "outputName": { "typeName": "String", "expression": { "type": "Literal", "value": "Status" } },
+        "outputValue": { "typeName": "Object", "expression": { "type": "JavaScript", "value": "variables.Status" } },
+        "id": "l21rtOutput",
+        "name": "OutputStatus",
+        "type": "Elsa.SetOutput",
+        "version": 1,
+        "customProperties": { "canStartWorkflow": false, "runAsynchronously": false },
+        "metadata": { "displayText": "Output Status", "designer": { "position": { "x": 560, "y": 200 } } }
+      },
+      {
+        "expectedStatusCodes": { "typeName": "Int32[]", "expression": { "type": "Object", "value": "[200]" } },
+        "url": { "typeName": "System.Uri, System.Private.Uri", "expression": { "type": "JavaScript", "value": "\"https://localhost:5101/api/orders/\" + variables.OrderId + \"/status\"" } },
+        "method": { "typeName": "String", "expression": { "type": "Literal", "value": "PUT" } },
+        "contentType": { "typeName": "String", "expression": { "type": "Literal", "value": "application/json" } },
+        "content": { "typeName": "Object", "expression": { "type": "JavaScript", "value": "JSON.stringify({ status: variables.Status })" } },
+        "id": "l21rtReport",
+        "name": "ReportStatus",
+        "type": "Elsa.FlowSendHttpRequest",
+        "version": 1,
+        "customProperties": { "canStartWorkflow": false, "runAsynchronously": false },
+        "metadata": { "displayText": "PUT status to CustomApi", "designer": { "position": { "x": 820, "y": 200 } } }
+      }
+    ],
+    "connections": [
+      { "source": { "activity": "l21rtCapture", "port": "Done" }, "target": { "activity": "l21rtCorrelate", "port": "In" } },
+      { "source": { "activity": "l21rtCorrelate", "port": "Done" }, "target": { "activity": "l21rtSetName", "port": "In" } },
+      { "source": { "activity": "l21rtSetName", "port": "Done" }, "target": { "activity": "l21rtDecision", "port": "In" } },
+      { "source": { "activity": "l21rtDecision", "port": "False" }, "target": { "activity": "l21rtAutoApprove", "port": "In" } },
+      { "source": { "activity": "l21rtDecision", "port": "True" }, "target": { "activity": "l21rtTask", "port": "In" } },
+      { "source": { "activity": "l21rtTask", "port": "Done" }, "target": { "activity": "l21rtApply", "port": "In" } },
+      { "source": { "activity": "l21rtApply", "port": "Done" }, "target": { "activity": "l21rtOutput", "port": "In" } },
+      { "source": { "activity": "l21rtAutoApprove", "port": "Done" }, "target": { "activity": "l21rtOutput", "port": "In" } },
+      { "source": { "activity": "l21rtOutput", "port": "Done" }, "target": { "activity": "l21rtReport", "port": "In" } }
+    ]
+  }
+}
