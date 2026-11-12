@@ -1,0 +1,44 @@
+@model List<OrderInstanceRow>
+@{
+    ViewData["Title"] = "Orders";
+}
+
+<h2>Orders</h2>
+<p class="muted">
+    Read straight from Elsa's workflow instance store (newest first). The order ID is the instance's
+    <strong>correlation ID</strong>; the status is the workflow's <code>Status</code> output.
+    Refresh after approving to see waiting orders finish.
+</p>
+
+@if (ViewBag.Error is string error)
+{
+    <div class="box error" role="alert">@error</div>
+}
+
+@if (Model.Count == 0)
+{
+    <p>No orders yet. <a asp-action="Create">Create one</a>.</p>
+}
+else
+{
+    <div class="tablewrap">
+        <table>
+            <thead>
+                <tr><th>Created (UTC)</th><th>Pattern</th><th>Instance name</th><th>Order status</th><th>Workflow</th><th>Order ID</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var row in Model)
+                {
+                    <tr>
+                        <td>@row.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                        <td>@(row.Pattern?.ToString() ?? row.DefinitionId)</td>
+                        <td>@(row.Name ?? "")</td>
+                        <td><strong>@(row.OrderStatus ?? (row.IsWaiting ? "waiting for approval…" : "—"))</strong></td>
+                        <td>@row.Status / @row.SubStatus</td>
+                        <td class="mono">@(row.OrderId ?? "")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}

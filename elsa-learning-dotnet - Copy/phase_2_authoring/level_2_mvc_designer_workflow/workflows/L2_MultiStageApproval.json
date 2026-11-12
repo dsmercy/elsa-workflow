@@ -1,0 +1,196 @@
+{
+  "id": "l2multistage001",
+  "definitionId": "L2_MultiStageApproval",
+  "name": "L2_MultiStageApproval",
+  "description": "Multi-stage approval with a State Machine: ManagerReview → (Event L2.ManagerReviewed) → ManagerDecided → FinanceReview → (Event L2.FinanceReviewed) → FinanceDecided → Approved, or Rejected at either stage.",
+  "version": 1,
+  "toolVersion": "3.9.0.0",
+  "variables": [
+    { "id": "l2msVarOrderId", "name": "OrderId", "typeName": "String", "isArray": false, "value": "", "storageDriverTypeName": "Elsa.Workflows.WorkflowInstanceStorageDriver, Elsa.Workflows.Core" },
+    { "id": "l2msVarProduct", "name": "Product", "typeName": "String", "isArray": false, "value": "", "storageDriverTypeName": "Elsa.Workflows.WorkflowInstanceStorageDriver, Elsa.Workflows.Core" },
+    { "id": "l2msVarAmount", "name": "Amount", "typeName": "Double", "isArray": false, "value": "0", "storageDriverTypeName": "Elsa.Workflows.WorkflowInstanceStorageDriver, Elsa.Workflows.Core" },
+    { "id": "l2msVarStatus", "name": "Status", "typeName": "String", "isArray": false, "value": "", "storageDriverTypeName": "Elsa.Workflows.WorkflowInstanceStorageDriver, Elsa.Workflows.Core" },
+    { "id": "l2msVarReview", "name": "Review", "typeName": "Object", "isArray": false, "storageDriverTypeName": "Elsa.Workflows.WorkflowInstanceStorageDriver, Elsa.Workflows.Core" }
+  ],
+  "inputs": [
+    { "type": "Object", "name": "Order", "displayName": "Order", "description": "The order submitted from the MVC form.", "category": "", "uiHint": "singleline", "isArray": false }
+  ],
+  "outputs": [
+    { "type": "String", "name": "Status", "displayName": "Status", "description": "approved or rejected", "category": "", "isArray": false }
+  ],
+  "outcomes": [],
+  "customProperties": {},
+  "isReadonly": false,
+  "isLatest": true,
+  "isPublished": false,
+  "options": { "autoUpdateConsumingWorkflows": false },
+  "root": {
+    "type": "Elsa.Flowchart",
+    "version": 1,
+    "id": "l2msFlow",
+    "metadata": {},
+    "customProperties": {},
+    "activities": [
+      {
+        "script": { "typeName": "String", "expression": { "type": "Literal", "value": "const o = getInput(\"Order\");\nvariables.OrderId = o.OrderId;\nvariables.Product = o.Product;\nvariables.Amount = o.Amount;" } },
+        "id": "l2msCapture",
+        "name": "CaptureOrder",
+        "type": "Elsa.RunJavaScript",
+        "version": 1,
+        "customProperties": { "canStartWorkflow": false, "runAsynchronously": false },
+        "metadata": { "displayText": "Copy order into variables", "designer": { "position": { "x": -700, "y": 200 } } }
+      },
+      {
+        "correlationId": { "typeName": "String", "expression": { "type": "JavaScript", "value": "variables.OrderId" } },
+        "id": "l2msCorrelate",
+        "name": "CorrelateByOrderId",
+        "type": "Elsa.Correlate",
+        "version": 1,
+        "customProperties": { "canStartWorkflow": false, "runAsynchronously": false },
+        "metadata": { "displayText": "Correlation ID = OrderId", "designer": { "position": { "x": -460, "y": 200 } } }
+      },
+      {
+        "initialState": "ManagerReview",
+        "states": [
+          {
+            "name": "ManagerReview",
+            "entry": {
+              "type": "Elsa.Sequence",
+              "version": 1,
+              "id": "l2msManagerEntry",
+              "variables": [],
+              "activities": [
+                {
+                  "value": { "typeName": "String", "expression": { "type": "Liquid", "value": "Order {{ Variables.Product }} ({{ Variables.Amount }}) · awaiting Manager" } },
+                  "id": "l2msManagerName",
+                  "type": "Elsa.SetName",
+                  "version": 1
+                },
+                {
+                  "workflowDefinitionId": { "typeName": "String", "expression": { "type": "Literal", "value": "L2_SendNotification" } },
+                  "waitForCompletion": { "typeName": "Boolean", "expression": { "type": "Literal", "value": "true" } },
+                  "input": { "typeName": "ObjectDictionary", "expression": { "type": "JavaScript", "value": "({ Title: \"Stage 1 of 2 — manager approval: \" + variables.Product, Message: \"Order \" + variables.OrderId + \" for \" + variables.Amount + \" needs the MANAGER's approval.\", OrderId: variables.OrderId, ApproveLink: \"https://localhost:5001/Approvals\", RejectLink: \"\" })" } },
+                  "id": "l2msManagerNotify",
+                  "type": "Elsa.ExecuteWorkflow",
+                  "version": 1
+                }
+              ]
+            }
+          },
+          {
+            "name": "FinanceReview",
+            "entry": {
+              "type": "Elsa.Sequence",
+              "version": 1,
+              "id": "l2msFinanceEntry",
+              "variables": [],
+              "activities": [
+                {
+                  "value": { "typeName": "String", "expression": { "type": "Liquid", "value": "Order {{ Variables.Product }} ({{ Variables.Amount }}) · awaiting Finance" } },
+                  "id": "l2msFinanceName",
+                  "type": "Elsa.SetName",
+                  "version": 1
+                },
+                {
+                  "workflowDefinitionId": { "typeName": "String", "expression": { "type": "Literal", "value": "L2_SendNotification" } },
+                  "waitForCompletion": { "typeName": "Boolean", "expression": { "type": "Literal", "value": "true" } },
+                  "input": { "typeName": "ObjectDictionary", "expression": { "type": "JavaScript", "value": "({ Title: \"Stage 2 of 2 — finance approval: \" + variables.Product, Message: \"The manager approved order \" + variables.OrderId + \". FINANCE approval is now needed.\", OrderId: variables.OrderId, ApproveLink: \"https://localhost:5001/Approvals\", RejectLink: \"\" })" } },
+                  "id": "l2msFinanceNotify",
+                  "type": "Elsa.ExecuteWorkflow",
+                  "version": 1
+                }
+              ]
+            }
+          },
+          { "name": "ManagerDecided" },
+          { "name": "FinanceDecided" },
+          {
+            "name": "Approved",
+            "entry": {
+              "variable": { "id": "l2msVarStatus", "name": "Status", "typeName": "String", "value": "" },
+              "value": { "typeName": "Object", "expression": { "type": "Literal", "value": "approved" } },
+              "id": "l2msApprovedEntry",
+              "type": "Elsa.SetVariable",
+              "version": 1
+            }
+          },
+          {
+            "name": "Rejected",
+            "entry": {
+              "variable": { "id": "l2msVarStatus", "name": "Status", "typeName": "String", "value": "" },
+              "value": { "typeName": "Object", "expression": { "type": "Literal", "value": "rejected" } },
+              "id": "l2msRejectedEntry",
+              "type": "Elsa.SetVariable",
+              "version": 1
+            }
+          }
+        ],
+        "transitions": [
+          {
+            "name": "ManagerReviews", "displayName": "Manager reviews", "from": "ManagerReview", "to": "ManagerDecided",
+            "trigger": {
+              "eventName": { "typeName": "String", "expression": { "type": "Literal", "value": "L2.ManagerReviewed" } },
+              "result": { "typeName": "Object", "memoryReference": { "id": "l2msVarReview" } },
+              "id": "l2msTrigManager", "type": "Elsa.Event", "version": 1
+            }
+          },
+          {
+            "name": "ManagerApproved", "displayName": "Approved → finance", "from": "ManagerDecided", "to": "FinanceReview",
+            "condition": { "typeName": "Boolean", "expression": { "type": "JavaScript", "value": "variables.Review.Approved === true" } }
+          },
+          {
+            "name": "ManagerRejected", "displayName": "Rejected", "from": "ManagerDecided", "to": "Rejected",
+            "condition": { "typeName": "Boolean", "expression": { "type": "JavaScript", "value": "variables.Review.Approved !== true" } }
+          },
+          {
+            "name": "FinanceReviews", "displayName": "Finance reviews", "from": "FinanceReview", "to": "FinanceDecided",
+            "trigger": {
+              "eventName": { "typeName": "String", "expression": { "type": "Literal", "value": "L2.FinanceReviewed" } },
+              "result": { "typeName": "Object", "memoryReference": { "id": "l2msVarReview" } },
+              "id": "l2msTrigFinance", "type": "Elsa.Event", "version": 1
+            }
+          },
+          {
+            "name": "FinanceApproved", "displayName": "Approved", "from": "FinanceDecided", "to": "Approved",
+            "condition": { "typeName": "Boolean", "expression": { "type": "JavaScript", "value": "variables.Review.Approved === true" } }
+          },
+          {
+            "name": "FinanceRejected", "displayName": "Rejected", "from": "FinanceDecided", "to": "Rejected",
+            "condition": { "typeName": "Boolean", "expression": { "type": "JavaScript", "value": "variables.Review.Approved !== true" } }
+          }
+        ],
+        "id": "l2msStateMachine",
+        "name": "ApprovalStages",
+        "type": "Elsa.StateMachine",
+        "version": 1,
+        "customProperties": { "canStartWorkflow": false, "runAsynchronously": false },
+        "metadata": { "displayText": "Manager → Finance (State Machine)", "designer": { "position": { "x": -200, "y": 200 } } }
+      },
+      {
+        "value": { "typeName": "String", "expression": { "type": "Liquid", "value": "Order {{ Variables.Product }} ({{ Variables.Amount }}) · {{ Variables.Status }}" } },
+        "id": "l2msFinalName",
+        "name": "NameWithResult",
+        "type": "Elsa.SetName",
+        "version": 1,
+        "customProperties": { "canStartWorkflow": false, "runAsynchronously": false },
+        "metadata": { "displayText": "Rename with the result", "designer": { "position": { "x": 100, "y": 200 } } }
+      },
+      {
+        "outputName": { "typeName": "String", "expression": { "type": "Literal", "value": "Status" } },
+        "outputValue": { "typeName": "Object", "expression": { "type": "JavaScript", "value": "variables.Status" } },
+        "id": "l2msOutput",
+        "name": "OutputStatus",
+        "type": "Elsa.SetOutput",
+        "version": 1,
+        "customProperties": { "canStartWorkflow": false, "runAsynchronously": false },
+        "metadata": { "displayText": "Output Status", "designer": { "position": { "x": 360, "y": 200 } } }
+      }
+    ],
+    "connections": [
+      { "source": { "activity": "l2msCapture", "port": "Done" }, "target": { "activity": "l2msCorrelate", "port": "In" } },
+      { "source": { "activity": "l2msCorrelate", "port": "Done" }, "target": { "activity": "l2msStateMachine", "port": "In" } },
+      { "source": { "activity": "l2msStateMachine", "port": "Done" }, "target": { "activity": "l2msFinalName", "port": "In" } },
+      { "source": { "activity": "l2msFinalName", "port": "Done" }, "target": { "activity": "l2msOutput", "port": "In" } }
+    ]
+  }
+}

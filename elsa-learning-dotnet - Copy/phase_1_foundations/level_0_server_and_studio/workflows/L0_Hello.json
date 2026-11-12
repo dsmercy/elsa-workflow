@@ -1,0 +1,65 @@
+{
+  "id": "l0hello00000001",
+  "definitionId": "L0_Hello",
+  "name": "L0_Hello",
+  "description": "Phase 1 / Level 0: GET {Http:BasePath}/hello returns a greeting.",
+  "version": 1,
+  "toolVersion": "3.9.0.0",
+  "variables": [],
+  "inputs": [],
+  "outputs": [],
+  "outcomes": [],
+  "customProperties": {},
+  "isReadonly": false,
+  "isLatest": true,
+  "isPublished": false,
+  "options": {
+    "autoUpdateConsumingWorkflows": false
+  },
+  "root": {
+    "type": "Elsa.Flowchart",
+    "version": 1,
+    "id": "l0flowchart0001",
+    "nodeId": "Workflow1:l0flowchart0001",
+    "metadata": {},
+    "customProperties": {
+      "notFoundConnections": [],
+      "canStartWorkflow": false,
+      "runAsynchronously": false
+    },
+    "activities": [
+      {
+        "path": { "typeName": "String", "expression": { "type": "Literal", "value": "hello" } },
+        "supportedMethods": { "typeName": "String[]", "expression": { "type": "Object", "value": "[\"GET\"]" } },
+        "authorize": { "typeName": "Boolean", "expression": { "type": "Literal", "value": false } },
+        "policy": { "typeName": "String", "expression": { "type": "Literal" } },
+        "id": "l0httpendpoint1",
+        "nodeId": "Workflow1:l0flowchart0001:l0httpendpoint1",
+        "name": "HttpEndpoint1",
+        "type": "Elsa.HttpEndpoint",
+        "version": 1,
+        "customProperties": { "canStartWorkflow": true, "runAsynchronously": false },
+        "metadata": { "designer": { "position": { "x": -200, "y": 100 }, "size": { "width": 176, "height": 50 } } }
+      },
+      {
+        "statusCode": { "typeName": "System.Net.HttpStatusCode, System.Net.Primitives", "expression": { "type": "Literal", "value": "OK" } },
+        "content": { "typeName": "Object", "expression": { "type": "Literal", "value": "Hello from Elsa" } },
+        "contentType": { "typeName": "String", "expression": { "type": "Literal", "value": "text/plain" } },
+        "responseHeaders": { "typeName": "Elsa.Http.Models.HttpHeaders, Elsa.Http", "expression": { "type": "Literal", "value": {} } },
+        "id": "l0writeresp0001",
+        "nodeId": "Workflow1:l0flowchart0001:l0writeresp0001",
+        "name": "WriteHttpResponse1",
+        "type": "Elsa.WriteHttpResponse",
+        "version": 1,
+        "customProperties": { "canStartWorkflow": false, "runAsynchronously": false },
+        "metadata": { "designer": { "position": { "x": 150, "y": 100 }, "size": { "width": 184, "height": 50 } } }
+      }
+    ],
+    "connections": [
+      {
+        "source": { "activity": "l0httpendpoint1", "port": "Done" },
+        "target": { "activity": "l0writeresp0001", "port": "In" }
+      }
+    ]
+  }
+}

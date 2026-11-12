@@ -1,0 +1,155 @@
+@model ApprovalsViewModel
+@{
+    ViewData["Title"] = "Approvals";
+}
+
+<h2>Approvals</h2>
+
+@if (Model.Message is not null) { <div class="box ok" role="status">@Model.Message</div> }
+@if (Model.Error is not null) { <div class="box error" role="alert">@Model.Error</div> }
+
+@if (!Model.HasPending)
+{
+    <div class="box">
+        <p><strong>No pending approvals.</strong></p>
+        <p class="muted">Orders that need a person's decision show up here while their workflow is suspended.
+            <a asp-controller="Orders" asp-action="Create">Submit a new order</a> over 1000 to create one.</p>
+    </div>
+}
+else
+{
+    <p class="muted">
+        Every row is a workflow instance that is <strong>suspended</strong> at a bookmark. Each button resumes it a
+        different way. Only the approval types with something waiting are shown.
+    </p>
+
+    <label for="reviewer">Reviewer name (optional, sent in the payload)</label>
+    @* One reviewer field, copied into every form below by its name="reviewer" hidden input. *@
+    <input id="reviewer" placeholder="manager" oninput="document.querySelectorAll('input[name=reviewer]').forEach(i => i.value = this.value)" />
+
+    @if (Model.WaitingForEvent.Count > 0)
+    {
+        <section class="box">
+            <h3>Single approver — Event <code>OrderReviewed</code></h3>
+            <p class="muted">Approve/Reject calls <code>IEventPublisher.PublishAsync("OrderReviewed", correlationId: orderId, payload)</code>.</p>
+            <div class="tablewrap"><table>
+                <thead><tr><th>Instance</th><th>Order ID</th><th></th></tr></thead>
+                <tbody>
+                @foreach (var row in Model.WaitingForEvent)
+                {
+                    <tr data-action-row>
+                        <td>@row.Name</td>
+                        <td class="mono">@row.OrderId</td>
+                        <td>
+                            @foreach (var approved in new[] { true, false })
+                            {
+                                <form class="inline" asp-action="Review" method="post">
+                                    <input type="hidden" name="orderId" value="@row.OrderId" />
+                                    <input type="hidden" name="approved" value="@approved.ToString().ToLowerInvariant()" />
+                                    <input type="hidden" name="reviewer" />
+                                    <button type="submit">@(approved ? "Approve" : "Reject")</button>
+                                </form>
+                            }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table></div>
+        </section>
+    }
+
+    @if (Model.WaitingForEmailLink.Count > 0)
+    {
+        <section class="box">
+            <h3>Approve by email link — HTTP Endpoint</h3>
+            <p class="muted">
+                These are the same links the email contains. Opening one sends a GET to the workflow's
+                <code>HTTP Endpoint</code>; <code>?correlationId=</code> tells Elsa which waiting instance to resume.
+            </p>
+            <div class="tablewrap"><table>
+                <thead><tr><th>Instance</th><th>Order ID</th><th>Links</th></tr></thead>
+                <tbody>
+                @foreach (var row in Model.WaitingForEmailLink)
+                {
+                    <tr data-action-row>
+                        <td>@row.Name</td>
+                        <td class="mono">@row.OrderId</td>
+                        <td data-action-cell>
+                            <a data-once href="@($"{Model.EmailLinkBaseUrl}?correlationId={row.OrderId}&decision=approve")" target="_blank">Approve link</a> ·
+                            <a data-once href="@($"{Model.EmailLinkBaseUrl}?correlationId={row.OrderId}&decision=reject")" target="_blank">Reject link</a>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table></div>
+        </section>
+    }
+
+    @if (Model.PendingTasks.Count > 0)
+    {
+        <section class="box">
+            <h3>Run Task <code>ReviewOrder</code></h3>
+            <p class="muted">Approve/Reject calls <code>ITaskReporter.ReportCompletionAsync(taskId, result)</code>. Pending tasks live in memory (lost on restart).</p>
+            <div class="tablewrap"><table>
+                <thead><tr><th>Order</th><th>Order ID</th><th>Task ID</th><th></th></tr></thead>
+                <tbody>
+                @foreach (var task in Model.PendingTasks)
+                {
+                    <tr data-action-row>
+                        <td>@task.Product, @task.Amount</td>
+                        <td class="mono">@task.OrderId</td>
+                        <td class="mono">@task.TaskId</td>
+                        <td>
+                            @foreach (var approved in new[] { true, false })
+                            {
+                                <form class="inline" asp-action="CompleteTask" method="post">
+                                    <input type="hidden" name="taskId" value="@task.TaskId" />
+                                    <input type="hidden" name="approved" value="@approved.ToString().ToLowerInvariant()" />
+                                    <input type="hidden" name="reviewer" />
+                                    <button type="submit">@(approved ? "Approve" : "Reject")</button>
+                                </form>
+                            }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table></div>
+        </section>
+    }
+
+    @if (Model.WaitingInStateMachine.Count > 0)
+    {
+        <section class="box">
+            <h3>Multi-stage — State Machine (manager → finance)</h3>
+            <p class="muted">Each button publishes the current stage's event — <code>L2.ManagerReviewed</code> or <code>L2.FinanceReviewed</code> — with the decision in the payload.</p>
+            <div class="tablewrap"><table>
+                <thead><tr><th>Instance</th><th>Stage</th><th>Order ID</th><th></th></tr></thead>
+                <tbody>
+                @foreach (var row in Model.WaitingInStateMachine)
+                {
+                    <tr data-action-row>
+                        <td>@row.Name</td>
+                        <td>@(row.Stage ?? "?")</td>
+                        <td class="mono">@row.OrderId</td>
+                        <td>
+                            @if (row.Stage is not null)
+                            {
+                                @foreach (var approved in new[] { true, false })
+                                {
+                                    <form class="inline" asp-action="Stage" method="post">
+                                        <input type="hidden" name="orderId" value="@row.OrderId" />
+                                        <input type="hidden" name="stage" value="@row.Stage" />
+                                        <input type="hidden" name="approved" value="@approved.ToString().ToLowerInvariant()" />
+                                        <input type="hidden" name="reviewer" />
+                                        <button type="submit">@row.Stage: @(approved ? "Approve" : "Reject")</button>
+                                    </form>
+                                }
+                            }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table></div>
+        </section>
+    }
+}

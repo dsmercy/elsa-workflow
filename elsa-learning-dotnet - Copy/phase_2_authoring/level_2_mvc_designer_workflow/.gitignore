@@ -1,0 +1,32 @@
+# .NET build output
+**/bin/
+**/obj/
+
+# Real config with secrets
+**/appsettings.json
+
+# Local SQLite database for Elsa
+*.sqlite.db
+*.sqlite.db-shm
+*.sqlite.db-wal
+**/*.db
+
+# Blazor / publish output
+**/wwwroot/_framework/
+publish/
+
+# NuGet
+.packages/
+*.nupkg
+
+# IDE
+.idea/
+.vs/
+*.user
+*.suo
+
+# Logs / OS
+*.log
+logs/
+.DS_Store
+Thumbs.db
