@@ -51,6 +51,9 @@ level_2_2_code_workflows/
 
 There is no `workflows/` folder: nothing needs importing.
 
+**Data flow:** [docs/email-link-approval-data-flow.md](docs/email-link-approval-data-flow.md) traces one email-link order through
+all four apps, both databases and the mail server (diagram, sequence and step table).
+
 ## How a C# workflow is built
 
 As in level 2.1, the workflows contain only the business process, so they are drawn exactly like level 2's. The
