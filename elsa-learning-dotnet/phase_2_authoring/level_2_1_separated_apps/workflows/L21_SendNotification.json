@@ -64,7 +64,7 @@
         "type": "Elsa.FlowSendHttpRequest",
         "version": 1,
         "customProperties": { "canStartWorkflow": false, "runAsynchronously": false },
-        "metadata": { "displayText": "POST to CustomApi /api/notifications", "designer": { "position": { "x": 300, "y": 100 } } }
+        "metadata": { "displayText": "POST to webhook (Teams/Slack stand-in)", "designer": { "position": { "x": 300, "y": 100 } } }
       }
     ],
     "connections": [

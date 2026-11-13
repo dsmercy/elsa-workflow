@@ -44,7 +44,8 @@ level_2_1_separated_apps/
 ├── level_2_1_separated_apps.slnLaunch startup profile "Level 2.1 - all apps"
 ├── ElsaServer/                    Elsa engine + REST API (port 5001)
 │   ├── Program.cs                 AddElsa(...) with an explicit ConnectionStrings:Elsa
-│   └── Handlers/RunTaskForwarder.cs  forwards "Run Task" requests to CustomApi
+│   ├── Handlers/RunTaskForwarder.cs        forwards "Run Task" requests to CustomApi
+│   └── Handlers/WorkflowStatusForwarder.cs reports each finished order's status to CustomApi
 ├── ElsaStudio/                    Elsa Studio (port 6001), same as level 2
 ├── CustomApi/                     business REST API (port 5101), no Elsa packages
 │   ├── Controllers/OrdersController.cs        POST/GET /api/orders, PUT /api/orders/{id}/status
@@ -71,7 +72,14 @@ level_2_1_separated_apps/
 | Resume: multi-stage | CustomApi → ElsaServer | same, event `L21.ManagerReviewed` / `L21.FinanceReviewed` |
 | Resume: Run Task | CustomApi → ElsaServer | `POST /elsa/api/tasks/{taskId}/complete` `{result: {Approved, Reviewer}}` |
 | Resume: email link | CustomApi → ElsaServer, or the approver's browser | `GET /workflows/l21/approvals/decision?correlationId=…&decision=approve` |
-| Report the result | workflow → CustomApi | HTTP Request activity "ReportStatus": `PUT /api/orders/{id}/status` `{status}` |
+| Report the result | ElsaServer → CustomApi | `WorkflowStatusForwarder` (on Elsa's WorkflowFinished notification): `PUT /api/orders/{id}/status` `{status}` |
+
+**The workflows are drawn exactly like level 2's.** All the separated-apps plumbing that is not part of the business
+process lives in ElsaServer, not in the diagrams: `RunTaskForwarder` passes Run Task requests to CustomApi, and
+`WorkflowStatusForwarder` reports each approval workflow's final `Status` output (the workflows listed in
+`CustomApi:ReportStatusFor`). Compared with level 2's JSON, every box (type, name, label, position) and arrow is the
+same; the only difference is inside the multi-stage State Machine, which starts in a **Routing** state for the
+"Placed by" rule below.
 
 ### Who placed the order (multi-stage only)
 
@@ -159,7 +167,7 @@ Tested end to end on Elsa 3.9.0 (12 November 2026), with the four apps on separa
 | Event: 5000 → approve through CustomApi | order `approved`; Audit and Listener notifications arrive |
 | Event: 500 | auto-approved, no approval created |
 | Email link: reject through CustomApi | order `rejected` |
-| Email link: link clicked directly at the Elsa Server | order `approved`; its pending approval is `closed` by the status callback |
+| Email link: link clicked directly at the Elsa Server | order `approved`; its pending approval is `closed` by the status report |
 | Run Task: approve and reject | task forwarded, completed through `/elsa/api/tasks/{id}/complete`, order updated |
 | Multi-stage: manager approve → finance reject / approve | finance approval appears as soon as the manager decides; order `rejected` / `approved` |
 | Multi-stage, placed by a company employee | goes straight to finance (no manager notification); one finance approval finishes it |
@@ -180,8 +188,10 @@ Not checked in a browser: Studio itself (it is the level 2 project, unchanged) a
   `https://localhost:5001/workflows/...`). Change them in Studio if you change ports.
 - **`Elsa.Webhooks` has no 3.9.0 release**, so ElsaServer forwards Run Task requests with its own small handler.
 - **CustomApi creates its database with `EnsureCreated`** and adds later columns (`Orders.CreatedBy`) with a small startup check. That is fine for learning; a real app would use EF Core migrations.
-- **The status callback can fail silently.** If CustomApi is down when a workflow finishes, the HTTP Request activity takes its
-  "unmatched status" path and the order stays `waiting` in `custom.sqlite.db`, although Elsa shows the instance finished.
+- **The status report can fail.** If CustomApi is down when a workflow finishes, `WorkflowStatusForwarder` logs an
+  error in ElsaServer's log and the order stays `waiting` in `custom.sqlite.db`, although Elsa shows the instance finished.
+- **ElsaServer and the workflows must match.** The workflows no longer report their own status, so they need an
+  ElsaServer that includes `WorkflowStatusForwarder`. Restart ElsaServer before importing the updated workflows.
 
 ## Security (DEV ONLY)
 

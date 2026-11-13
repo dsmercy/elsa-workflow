@@ -2,7 +2,7 @@
   "id": "l21eventapprove1",
   "definitionId": "L21_EventApproval",
   "name": "L21_EventApproval",
-  "description": "Single approver: Correlate → notify (Execute Workflow) → wait for Event \"OrderReviewed\" (CustomApi triggers it via POST /elsa/api/events/OrderReviewed/trigger) → Decision → PUT status to CustomApi → Publish Event + Dispatch Workflow.",
+  "description": "Single approver: Correlate → notify (Execute Workflow) → wait for Event \"OrderReviewed\" (CustomApi triggers it via POST /elsa/api/events/OrderReviewed/trigger) → Decision → Publish Event + Dispatch Workflow.",
   "version": 1,
   "toolVersion": "3.9.0.0",
   "variables": [
@@ -125,19 +125,6 @@
         "metadata": { "displayText": "Output Status", "designer": { "position": { "x": 780, "y": 200 } } }
       },
       {
-        "expectedStatusCodes": { "typeName": "Int32[]", "expression": { "type": "Object", "value": "[200]" } },
-        "url": { "typeName": "System.Uri, System.Private.Uri", "expression": { "type": "JavaScript", "value": "\"https://localhost:5101/api/orders/\" + variables.OrderId + \"/status\"" } },
-        "method": { "typeName": "String", "expression": { "type": "Literal", "value": "PUT" } },
-        "contentType": { "typeName": "String", "expression": { "type": "Literal", "value": "application/json" } },
-        "content": { "typeName": "Object", "expression": { "type": "JavaScript", "value": "JSON.stringify({ status: variables.Status })" } },
-        "id": "l21evReport",
-        "name": "ReportStatus",
-        "type": "Elsa.FlowSendHttpRequest",
-        "version": 1,
-        "customProperties": { "canStartWorkflow": false, "runAsynchronously": false },
-        "metadata": { "displayText": "PUT status to CustomApi", "designer": { "position": { "x": 780, "y": 360 } } }
-      },
-      {
         "eventName": { "typeName": "String", "expression": { "type": "Literal", "value": "OrderDecided" } },
         "isLocalEvent": { "typeName": "Boolean", "expression": { "type": "Literal", "value": "false" } },
         "payload": { "typeName": "Object", "expression": { "type": "JavaScript", "value": "({ OrderId: variables.OrderId, Status: variables.Status, Pattern: \"Event\" })" } },
@@ -170,8 +157,7 @@
       { "source": { "activity": "l21evWait", "port": "Done" }, "target": { "activity": "l21evApplyReview", "port": "In" } },
       { "source": { "activity": "l21evApplyReview", "port": "Done" }, "target": { "activity": "l21evOutput", "port": "In" } },
       { "source": { "activity": "l21evAutoApprove", "port": "Done" }, "target": { "activity": "l21evOutput", "port": "In" } },
-      { "source": { "activity": "l21evOutput", "port": "Done" }, "target": { "activity": "l21evReport", "port": "In" } },
-      { "source": { "activity": "l21evReport", "port": "Done" }, "target": { "activity": "l21evPublish", "port": "In" } },
+      { "source": { "activity": "l21evOutput", "port": "Done" }, "target": { "activity": "l21evPublish", "port": "In" } },
       { "source": { "activity": "l21evPublish", "port": "Done" }, "target": { "activity": "l21evAudit", "port": "In" } }
     ]
   }

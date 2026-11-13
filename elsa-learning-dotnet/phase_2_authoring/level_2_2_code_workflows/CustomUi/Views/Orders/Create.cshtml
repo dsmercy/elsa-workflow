@@ -1,0 +1,98 @@
+@model CreateOrderViewModel
+@{
+    ViewData["Title"] = "Create order";
+    var patterns = Enum.GetValues<ApprovalPattern>()
+        .Select(p => new SelectListItem(ApprovalPatterns.Describe(p), p.ToString()));
+    var creators = Enum.GetValues<OrderCreator>()
+        .Select(c => new SelectListItem(ApprovalPatterns.Describe(c), c.ToString()));
+}
+
+<p>
+    This form posts to <strong>CustomApi</strong> (<code>POST /api/orders</code>). CustomApi saves the order in
+    <code>custom.sqlite.db</code> and starts the published workflow on the <strong>Elsa Server</strong>
+    through Elsa's REST API. Amounts up to 1000 are approved automatically; higher amounts follow the
+    pattern's approval path.
+</p>
+
+<form asp-action="Create" method="post">
+    <div asp-validation-summary="ModelOnly" class="error"></div>
+
+    <label asp-for="Form.Pattern">Approval pattern</label>
+    <select asp-for="Form.Pattern" asp-items="patterns"></select>
+
+    @* Only the multi-stage pattern uses "Placed by". Hidden (and disabled by the script, so it is not posted) for the others;
+       CustomApi then records the default, Customer. The server renders the right state; the script keeps it in sync. *@
+    @{ var isMultiStage = Model.Form.Pattern == ApprovalPattern.MultiStage; }
+    <div id="createdByField" hidden="@(!isMultiStage)">
+        <label asp-for="Form.CreatedBy">Placed by</label>
+        <select asp-for="Form.CreatedBy" asp-items="creators"></select>
+        <p class="muted">A <strong>customer</strong> order needs manager and finance approval; a
+            <strong>company employee</strong> order goes straight to finance. CustomApi applies this rule.</p>
+    </div>
+
+    <label asp-for="Form.Product">Product</label>
+    <input asp-for="Form.Product" />
+    <span asp-validation-for="Form.Product" class="error"></span>
+
+    <label asp-for="Form.Amount">Amount</label>
+    <input asp-for="Form.Amount" type="number" step="0.01" />
+    <span asp-validation-for="Form.Amount" class="error"></span>
+
+    <div><button type="submit">Create order</button></div>
+</form>
+
+<script>
+    (() => {
+        const pattern = document.getElementById('Form_Pattern');
+        const field = document.getElementById('createdByField');
+        const createdBy = document.getElementById('Form_CreatedBy');
+        const sync = () => {
+            const multiStage = pattern.value === '@nameof(ApprovalPattern.MultiStage)';
+            field.hidden = !multiStage;
+            createdBy.disabled = !multiStage;
+        };
+        pattern.addEventListener('change', sync);
+        sync();
+    })();
+</script>
+
+@if (Model.Error is not null)
+{
+    <div class="box error" role="alert">@Model.Error</div>
+}
+
+@if (Model.Result is { } o)
+{
+    <div class="box">
+        @if (o.IsWaiting)
+        {
+            <h2>Order waiting for approval</h2>
+            <p>
+                The workflow is <strong>suspended</strong> on the Elsa Server. Decide it on the
+                <a asp-controller="Approvals" asp-action="Index">Approvals</a> page
+                @if (o.Pattern == nameof(ApprovalPattern.EmailLink)) { <text>or with the link in the email</text> }.
+            </p>
+        }
+        else
+        {
+            <h2>Order @o.Status</h2>
+        }
+        <dl>
+            <dt>Pattern</dt>
+            <dd>@(Enum.TryParse<ApprovalPattern>(o.Pattern, out var p) ? ApprovalPatterns.Describe(p) : o.Pattern)</dd>
+            <dt>Order</dt>
+            <dd>@o.Product, @o.Amount.ToString("0.00")</dd>
+            <dt>Placed by</dt>
+            <dd>@(Enum.TryParse<OrderCreator>(o.CreatedBy, out var c) ? ApprovalPatterns.Describe(c) : o.CreatedBy)</dd>
+            <dt>Order status (custom.sqlite.db)</dt>
+            <dd>@o.Status</dd>
+            <dt>Workflow</dt>
+            <dd>@o.WorkflowDefinitionId</dd>
+            <dt>Workflow instance ID (elsa.sqlite.db)</dt>
+            <dd>@(o.WorkflowInstanceId ?? "—")</dd>
+            <dt>Order ID (= correlation ID)</dt>
+            <dd>@o.Id</dd>
+        </dl>
+        <p>Find the instance in <a href="https://localhost:6001" target="_blank">Studio</a> → <em>Workflows → Instances</em>.</p>
+    </div>
+}

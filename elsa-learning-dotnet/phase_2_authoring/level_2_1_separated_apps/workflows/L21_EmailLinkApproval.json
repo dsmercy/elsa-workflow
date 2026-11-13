@@ -2,7 +2,7 @@
   "id": "l21emaillink0001",
   "definitionId": "L21_EmailLinkApproval",
   "name": "L21_EmailLinkApproval",
-  "description": "Approve by email link: Correlate → email with Approve/Reject links (Execute Workflow) → HTTP Endpoint on the Elsa Server waits for the click → respond to the browser → PUT status to CustomApi.",
+  "description": "Approve by email link: Correlate → email with Approve/Reject links (Execute Workflow) → HTTP Endpoint on the Elsa Server waits for the click → respond to the browser.",
   "version": 1,
   "toolVersion": "3.9.0.0",
   "variables": [
@@ -136,19 +136,6 @@
         "version": 1,
         "customProperties": { "canStartWorkflow": false, "runAsynchronously": false },
         "metadata": { "displayText": "Output Status", "designer": { "position": { "x": 1040, "y": 200 } } }
-      },
-      {
-        "expectedStatusCodes": { "typeName": "Int32[]", "expression": { "type": "Object", "value": "[200]" } },
-        "url": { "typeName": "System.Uri, System.Private.Uri", "expression": { "type": "JavaScript", "value": "\"https://localhost:5101/api/orders/\" + variables.OrderId + \"/status\"" } },
-        "method": { "typeName": "String", "expression": { "type": "Literal", "value": "PUT" } },
-        "contentType": { "typeName": "String", "expression": { "type": "Literal", "value": "application/json" } },
-        "content": { "typeName": "Object", "expression": { "type": "JavaScript", "value": "JSON.stringify({ status: variables.Status })" } },
-        "id": "l21elReport",
-        "name": "ReportStatus",
-        "type": "Elsa.FlowSendHttpRequest",
-        "version": 1,
-        "customProperties": { "canStartWorkflow": false, "runAsynchronously": false },
-        "metadata": { "displayText": "PUT status to CustomApi", "designer": { "position": { "x": 1300, "y": 200 } } }
       }
     ],
     "connections": [
@@ -161,8 +148,7 @@
       { "source": { "activity": "l21elWaitClick", "port": "Done" }, "target": { "activity": "l21elApplyClick", "port": "In" } },
       { "source": { "activity": "l21elApplyClick", "port": "Done" }, "target": { "activity": "l21elRespond", "port": "In" } },
       { "source": { "activity": "l21elRespond", "port": "Done" }, "target": { "activity": "l21elOutput", "port": "In" } },
-      { "source": { "activity": "l21elAutoApprove", "port": "Done" }, "target": { "activity": "l21elOutput", "port": "In" } },
-      { "source": { "activity": "l21elOutput", "port": "Done" }, "target": { "activity": "l21elReport", "port": "In" } }
+      { "source": { "activity": "l21elAutoApprove", "port": "Done" }, "target": { "activity": "l21elOutput", "port": "In" } }
     ]
   }
 }
